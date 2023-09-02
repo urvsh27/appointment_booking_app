@@ -24,7 +24,7 @@ module.exports = {
             throw new Error(userMessages.userAlreadyExists);
           } else {
             const hashedPassword = await getHashedPassword(password);
-            await user
+            await userMode
               .save()
               .then(async (newUserDetails) => {
                 if(IsNullOrEmpty(newUserDetails)){
