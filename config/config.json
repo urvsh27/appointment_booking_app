@@ -1,0 +1,9 @@
+{
+  "development": {
+    "username": "myappradar",
+    "password": "kGtBCurJ0jl5",
+    "database": "neondb",
+    "host": "ep-rapid-boat-09306388.us-east-2.aws.neon.tech",
+    "dialect": "postgres"
+  }
+}
