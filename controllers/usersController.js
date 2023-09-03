@@ -2,46 +2,57 @@
 const usersModel = require('../models').users;
 
 //Import controllers
-const globalController = require('./globalControllers'); 
+const globalController = require('./globalController'); 
 
 //Import files
 const {successObjectResponse,errorObjectResponse} = require('../utils/response');
-const { IsNullOrEmpty ,IsNotNullOrEmpty } = require('../utils/enum');
+const { IsNullOrEmpty , IsNotNullOrEmpty} = require('../utils/enum');
 const { getHashedPassword , compareHashedPassword, createJwtToken} = require('../middlewares/auth');
 const { userMessages } = require('../utils/messages');
+const Sequelize = require('sequelize');
+const db = require('../models/index');
 
 module.exports = {
-  // Register
+  /*
+  * Register
+  * name : string
+  * email : email
+  * password : string
+  */
   async register(req, res) {
     let successObjectRes = successObjectResponse;
     let errorObjectRes = errorObjectResponse;
     try {
       const { name, email, password } = req.body;
-      await usersModel
-        .findOne({ email: email })
-        .then(async (existingUserDetails) => {
-          if (IsNotNullOrEmpty(existingUserDetails)) {
+      let newUserId = '';
+      await db.sequelize.transaction({
+        deferrable: Sequelize.Deferrable.SET_DEFERRED
+      }, async (t1) =>{
+        const existingUserDetails = await globalController.getModuleDetails(usersModel,'findOne',{email:email},['id','name','email',], true);
+          if (IsNotNullOrEmpty(existingUserDetails.id)) {
             throw new Error(userMessages.userAlreadyExists);
           } else {
             const hashedPassword = await getHashedPassword(password);
-            await userMode
-              .save()
+            await usersModel.create({ name, email, password: hashedPassword }, { transaction: t1 })
               .then(async (newUserDetails) => {
-                if(IsNullOrEmpty(newUserDetails)){
-                  throw new Error(userMessages.userRegisterFail);
+                if (IsNotNullOrEmpty(newUserDetails.id)) {
+                  newUserId = newUserDetails.id;
                 }else{
-                  successObjectRes.message = userMessages.userRegisterSuccess;
-                  successObjectRes.data = newUserDetails;
+                  throw new Error(userMessages.userRegisterFail);
                 }
               })
-              .catch((error) => {
-                throw new Error(error.message);
+              .catch(async(error) => {
+                let message = await globalController.getMessageFromErrorInstance(error);
+                if(message){
+                  throw new Error(message);
+                }else{
+                  throw new Error(error.message);
+                }
               });
           }
-        })
-        .catch((error) => {
-          throw new Error(error.message);
-        });
+      });
+      successObjectRes.message = userMessages.userRegisterSuccess;
+      successObjectRes.data = await globalController.getModuleDetails(usersModel,'findOne',{id:newUserId},['id','name','email',], true);
       res.status(201).send(successObjectRes);
     } catch (error) {
       errorObjectRes.message = error.message;
@@ -49,30 +60,30 @@ module.exports = {
     }
   },
 
-   // Login
+   /*
+  * Login
+  * email : email
+  * password : string
+  */
   async login(req, res) {
       let successObjectRes = successObjectResponse;
       let errorObjectRes = errorObjectResponse;
       try {
-        const {  email, password } = req.body;
-        await usersModel.findOne({ email: email }).select('_id name email password').then(async (existingUserDetails) => {
-            if (IsNullOrEmpty(existingUserDetails)) {
+        const { email, password } = req.body;
+        const userDetails = await globalController.getModuleDetails(usersModel,'findOne',{email:email},[['id','userId'],'name','email','password'], true);
+            if (IsNullOrEmpty(userDetails.userId)) {
               throw new Error(userMessages.userNotFound);
             } else{
-              const matchPassword = await compareHashedPassword(password, existingUserDetails.password);
+              const matchPassword = await compareHashedPassword(password, userDetails.password);
               if(matchPassword===true){
-                let userDetails = await globalController.getModuleDetails(usersModel, 'findOne', {email:email}, {_id : 1, name : 1, email :1 });
-                const token = await createJwtToken(userDetails._id);
+                const token = await createJwtToken(userDetails.userId);
+                delete userDetails.password;
                 successObjectRes.message = userMessages.userLoginSuccess;
                 successObjectRes.data = { accessToken : token , userDetails : userDetails};
               }else{
                 throw new Error(userMessages.userLoginFailure);
               } 
             }         
-          })
-          .catch((error) => {
-            throw new Error(error.message);
-          });
         res.status(201).send(successObjectRes);
       } catch (error) {
         errorObjectRes.message = error.message;

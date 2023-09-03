@@ -49,7 +49,7 @@ module.exports = {
   },
 
   /*
-   * Jwt verify (function name kept userAuthValidate to differentiate)
+   * Jwt verify (function name kept as userAuthValidate to differentiate for admin or any other role validations)
    */
   async jwtUserAuthValidate(req, res, next) {
     let errorObjectRes = errorObjectResponse;
@@ -59,7 +59,6 @@ module.exports = {
       } else {
         var decoded = {};
         decoded = JWT.verify(req.headers.authorization, jwtSecretKey);
-        // returns : { value: '64d8de952e3b31b714c9b7b8', iat: 1691993232, exp: 1692079632 }
         if (IsNotNullOrEmpty(decoded)) {
           next();
         } else {

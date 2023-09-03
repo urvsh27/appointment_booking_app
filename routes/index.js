@@ -14,6 +14,7 @@ const router = express.Router();
 */
 // Register route
 router.post('/register',validator('register'), usersController.register);
-
+// Register route
+router.post('/login',validator('login'), usersController.login);
 
 module.exports = router;
