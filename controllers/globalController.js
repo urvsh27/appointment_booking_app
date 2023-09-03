@@ -1,6 +1,14 @@
+// Import models
+const usersModel = require('../models').users;
+
+// Import modules
+const moment = require('moment');
+
 //Import files
 const Sequelize = require('sequelize');
 const { IsNotNullOrEmpty } = require('../utils/enum');
+const { dateTimeMessages } = require('../utils/messages');
+
 module.exports = {
   /*
    * modelInstance : modelName
@@ -20,7 +28,7 @@ module.exports = {
     raw,
     modelIncludeData,
     offset,
-    limit,
+    limit
   ) {
     try {
       let responseDetails = {};
@@ -30,7 +38,7 @@ module.exports = {
         'findOne',
         'findAndCountAll',
       ];
-      if(availableQueryNames.includes(queryName)){
+      if (availableQueryNames.includes(queryName)) {
         if (queryName === 'findOne') {
           await modelInstance
             .findOne({
@@ -42,7 +50,7 @@ module.exports = {
               include: modelIncludeData,
             })
             .then((queryResult) => {
-              if(IsNotNullOrEmpty(queryResult)){
+              if (IsNotNullOrEmpty(queryResult)) {
                 responseDetails = queryResult;
               }
             })
@@ -50,13 +58,9 @@ module.exports = {
               throw new Error(error.message);
             });
         }
-      }else{
+      } else {
         throw new Error(`${queryName} method is not available.`);
       }
-      // else{
-      //     throw new Error('query not found')
-      // }
-      console.log(responseDetails);
       return responseDetails;
     } catch (error) {
       throw new Error(error.message);
@@ -64,20 +68,20 @@ module.exports = {
   },
 
   /*
- errors= [
-  ValidationErrorItem {
-    message: 'email must be unique',
-    type: 'unique violation',
-    path: 'email',
-    value: 'urvish@gmail.com',
-    origin: 'DB',
-    instance: [users],
-    validatorKey: 'not_unique',
-    validatorName: null,
-    validatorArgs: []
-  }
-],
-*/
+  errors= [
+    ValidationErrorItem {
+      message: 'email must be unique',
+      type: 'unique violation',
+      path: 'email',
+      value: 'urvish@gmail.com',
+      origin: 'DB',
+      instance: [users],
+      validatorKey: 'not_unique',
+      validatorName: null,
+      validatorArgs: []
+    }
+  ],
+  */
 
   /*
    * Instants Models error handler
@@ -102,6 +106,55 @@ module.exports = {
         message = error.message;
       }
       return message;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  /*
+   * Check appointment availability
+   */
+  async checkAppointmentAvailability(requestBody) {
+    try {
+      const checkDateAndTime = await this.checkDateAndTime(requestBody);
+      if(checkDateAndTime===true){
+        const guestUserDetails = await this.getModuleDetails(usersModel, 'findOne',{ id : requestBody.guestId }, ['id'], true);
+        if(IsNotNullOrEmpty(guestUserDetails.id)){
+          console.log(guestUserDetails);
+        }else{
+          throw new Error('Guest user not found.')
+        }
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  async checkDateAndTime(requestBody) {
+    try {
+      const dateString = requestBody.date;
+      const inputTimezone = 'UTC';
+      const currentTimezone = 'UTC';
+      const inputDate = moment.tz(dateString, 'DD-MM-YYYY', inputTimezone);
+      const currentDate = moment().tz(currentTimezone);
+      currentDate.startOf('day');
+      if (inputDate.isSameOrAfter(currentDate)) {
+
+        const desiredStartTime = moment('08:00', 'HH:mm');
+        const desiredEndTime = moment('20:00', 'HH:mm');
+
+        const parsedStartTime = moment( requestBody.startTime, 'HH:mm');
+        const parsedEndTime = moment(requestBody.endTime, 'HH:mm');
+
+        if (!parsedStartTime.isSameOrAfter(desiredStartTime)){
+          throw new Error(dateTimeMessages.invalidStartTime);
+        }else if(!parsedEndTime.isSameOrBefore(desiredEndTime)){
+          throw new Error(dateTimeMessages.invalidEndTime);
+        }
+      } else {
+        throw new Error(dateTimeMessages.invalidDate);
+      }
+      return true;
     } catch (error) {
       throw new Error(error.message);
     }

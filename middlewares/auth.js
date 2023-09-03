@@ -6,7 +6,7 @@ const JWT = require('jsonwebtoken');
 const { jwtSecretKey } = require('../appConfig');
 const { IsNullOrEmpty, IsNotNullOrEmpty } = require('../utils/enum');
 const { generalMessages } = require('../utils/messages');
-const { errorObjectResponse } = require('../utils/response');
+const { successObjectResponse, errorObjectResponse } = require('../utils/response');
 
 module.exports = {
   /*
@@ -39,7 +39,7 @@ module.exports = {
   async createJwtToken(value) {
     try {
       const token = JWT.sign({ value }, jwtSecretKey, {
-        expiresIn: '30s',
+        expiresIn: '1d',
         algorithm: 'HS256',
       });
       return token;
@@ -50,7 +50,7 @@ module.exports = {
 
   /*
    * Jwt verify (function name kept as userAuthValidate to differentiate for admin or any other role validations)
-   */
+  */
   async jwtUserAuthValidate(req, res, next) {
     let errorObjectRes = errorObjectResponse;
     try {

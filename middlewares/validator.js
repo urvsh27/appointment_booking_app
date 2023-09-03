@@ -9,7 +9,6 @@ const { generalMessages } = require('../utils/messages');
 
 module.exports = function (validatorName) {
   return async function (req, res, next) {
-    console.log(req.body);
     let errorObjectRes = errorObjectResponse;
     try {
       if(req.body == undefined || req.body == null){

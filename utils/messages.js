@@ -17,7 +17,13 @@ const userMessages = {
   userLoginFailure : 'User login failed, please check email and password.',
 };
 
+const dateTimeMessages = {
+  invalidDate : 'You have selected Invalid date (past date).',
+  invalidStartTime : 'Start time should be 08:00 or more.',
+  invalidEndTime : 'End time should be 20:00 or less.',
+}
 module.exports = {
   generalMessages,
   userMessages,
+  dateTimeMessages,
 };
