@@ -22,5 +22,7 @@ router.post('/login', validator('login'), usersController.login);
 router.get('/dashboard', authController.jwtUserAuthValidate, appointmentsController.dashboard);
 // Book appointment
 router.post('/book-appointment', authController.jwtUserAuthValidate, validator('appointments'), appointmentsController.bookAppointment);
+// Get appointments
+router.get('/appointments', authController.jwtUserAuthValidate, appointmentsController.getUserAppointments);
 
 module.exports = router;

@@ -21,9 +21,17 @@ const dateTimeMessages = {
   invalidDate : 'You have selected Invalid date (past date).',
   invalidStartTime : 'Start time should be 08:00 or more.',
   invalidEndTime : 'End time should be 20:00 or less.',
-}
+};
+
+const appointmentMessages = {
+  notAllowedToScheduleAppointment : 'You are not allowed to schedule an appointment with yourself.',
+  appointmentsDetailsNotFound : 'Appointments details not found. Please try again later.',
+  appointmentsDetailsFound : 'Appointments details found successfully.',
+};
+
 module.exports = {
   generalMessages,
   userMessages,
   dateTimeMessages,
+  appointmentMessages,
 };

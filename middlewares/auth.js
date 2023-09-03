@@ -60,6 +60,7 @@ module.exports = {
         var decoded = {};
         decoded = JWT.verify(req.headers.authorization, jwtSecretKey);
         if (IsNotNullOrEmpty(decoded)) {
+          req.headers.loggedInUserId = decoded.value;
           next();
         } else {
           throw new Error(generalMessages.unableToVerifyJwtToken);

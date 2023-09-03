@@ -51,7 +51,8 @@ module.exports = {
             await usersModel
               .create(
                 { name, email, password: hashedPassword },
-                { transaction: t1 }
+                { transaction: t1 },
+                { raw: true }
               )
               .then(async (newUserDetails) => {
                 if (IsNotNullOrEmpty(newUserDetails.id)) {

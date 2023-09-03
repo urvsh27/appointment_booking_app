@@ -6,8 +6,8 @@ const moment = require('moment');
 
 //Import files
 const Sequelize = require('sequelize');
-const { IsNotNullOrEmpty } = require('../utils/enum');
-const { dateTimeMessages } = require('../utils/messages');
+const { IsNotNullOrEmpty, IsNullOrEmpty } = require('../utils/enum');
+const { dateTimeMessages, appointmentMessages } = require('../utils/messages');
 
 module.exports = {
   /*
@@ -32,6 +32,9 @@ module.exports = {
   ) {
     try {
       let responseDetails = {};
+      if(IsNullOrEmpty(returningAttributes)) {
+        returningAttributes = [];
+      }
       const availableQueryNames = [
         'findAll',
         'findByPk',
@@ -42,6 +45,24 @@ module.exports = {
         if (queryName === 'findOne') {
           await modelInstance
             .findOne({
+              attributes: returningAttributes,
+              where: whereCondition,
+              offset: offset,
+              limit: limit,
+              raw: raw,
+              include: modelIncludeData,
+            })
+            .then((queryResult) => {
+              if (IsNotNullOrEmpty(queryResult)) {
+                responseDetails = queryResult;
+              }
+            })
+            .catch((error) => {
+              throw new Error(error.message);
+            });
+        } else if (queryName === 'findAll') {
+          await modelInstance
+            .findAll({
               attributes: returningAttributes,
               where: whereCondition,
               offset: offset,
@@ -114,15 +135,25 @@ module.exports = {
   /*
    * Check appointment availability
    */
-  async checkAppointmentAvailability(requestBody) {
+  async checkAppointmentAvailability(req) {
     try {
-      const checkDateAndTime = await this.checkDateAndTime(requestBody);
-      if(checkDateAndTime===true){
-        const guestUserDetails = await this.getModuleDetails(usersModel, 'findOne',{ id : requestBody.guestId }, ['id'], true);
-        if(IsNotNullOrEmpty(guestUserDetails.id)){
-          console.log(guestUserDetails);
-        }else{
-          throw new Error('Guest user not found.')
+      const checkDate = await this.checkDate(req);
+      const checkTime = await this.checkTime(req);
+      if (checkDate === true && checkTime === true) {
+        if (req.headers.loggedInUserId == req.body.guestId) {
+          throw new Error(appointmentMessages.notAllowedToScheduleAppointment);
+        }
+        const guestUserDetails = await this.getModuleDetails(
+          usersModel,
+          'findOne',
+          { id: req.body.guestId },
+          ['id', 'name', 'email'],
+          true
+        );
+        if (IsNotNullOrEmpty(guestUserDetails.id)) {
+          return true;
+        } else {
+          throw new Error('Guest user not found.');
         }
       }
     } catch (error) {
@@ -130,29 +161,38 @@ module.exports = {
     }
   },
 
-  async checkDateAndTime(requestBody) {
+  // Check date
+  async checkDate(req) {
     try {
-      const dateString = requestBody.date;
+      const dateString = req.body.date;
       const inputTimezone = 'UTC';
       const currentTimezone = 'UTC';
       const inputDate = moment.tz(dateString, 'DD-MM-YYYY', inputTimezone);
       const currentDate = moment().tz(currentTimezone);
       currentDate.startOf('day');
       if (inputDate.isSameOrAfter(currentDate)) {
-
-        const desiredStartTime = moment('08:00', 'HH:mm');
-        const desiredEndTime = moment('20:00', 'HH:mm');
-
-        const parsedStartTime = moment( requestBody.startTime, 'HH:mm');
-        const parsedEndTime = moment(requestBody.endTime, 'HH:mm');
-
-        if (!parsedStartTime.isSameOrAfter(desiredStartTime)){
-          throw new Error(dateTimeMessages.invalidStartTime);
-        }else if(!parsedEndTime.isSameOrBefore(desiredEndTime)){
-          throw new Error(dateTimeMessages.invalidEndTime);
-        }
+        return true;
       } else {
         throw new Error(dateTimeMessages.invalidDate);
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  // Check Time
+  async checkTime(req) {
+    try {
+      const desiredStartTime = moment('08:00', 'HH:mm');
+      const desiredEndTime = moment('20:00', 'HH:mm');
+
+      const parsedStartTime = moment(req.body.startTime, 'HH:mm');
+      const parsedEndTime = moment(req.body.endTime, 'HH:mm');
+
+      if (!parsedStartTime.isSameOrAfter(desiredStartTime)) {
+        throw new Error(dateTimeMessages.invalidStartTime);
+      } else if (!parsedEndTime.isSameOrBefore(desiredEndTime)) {
+        throw new Error(dateTimeMessages.invalidEndTime);
       }
       return true;
     } catch (error) {
