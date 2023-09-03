@@ -5,7 +5,7 @@ const port = process.env.PORT;
 
 const server = { 
   environment: process.env.ENVIRONMENT
-}
+};
 
 const database = {
   dbUserName : process.env.DB_USERNAME,
@@ -16,10 +16,12 @@ const database = {
 };
 
 const dbUrl = process.env.DB_URL;
+const jwtSecretKey = process.env.JWT_SECRET_KEY;
 
 module.exports = {
   port,
   server,
   database,
-  dbUrl
+  dbUrl,
+  jwtSecretKey
 };
