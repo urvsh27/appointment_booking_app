@@ -1,5 +1,7 @@
 // Import models
 const usersModel = require('../models').users;
+const appointmentsModel = require('../models').appointments;
+const specialSchedulesModel = require('../models').special_schedules;
 
 // Import modules
 const moment = require('moment');
@@ -7,7 +9,11 @@ const moment = require('moment');
 //Import files
 const Sequelize = require('sequelize');
 const { IsNotNullOrEmpty, IsNullOrEmpty } = require('../utils/enum');
-const { dateTimeMessages, appointmentMessages } = require('../utils/messages');
+const {
+  dateTimeMessages,
+  appointmentMessages,
+  userMessages,
+} = require('../utils/messages');
 
 module.exports = {
   /*
@@ -32,7 +38,7 @@ module.exports = {
   ) {
     try {
       let responseDetails = {};
-      if(IsNullOrEmpty(returningAttributes)) {
+      if (IsNullOrEmpty(returningAttributes)) {
         returningAttributes = [];
       }
       const availableQueryNames = [
@@ -142,18 +148,28 @@ module.exports = {
       if (checkDate === true && checkTime === true) {
         if (req.headers.loggedInUserId == req.body.guestId) {
           throw new Error(appointmentMessages.notAllowedToScheduleAppointment);
-        }
-        const guestUserDetails = await this.getModuleDetails(
-          usersModel,
-          'findOne',
-          { id: req.body.guestId },
-          ['id', 'name', 'email'],
-          true
-        );
-        if (IsNotNullOrEmpty(guestUserDetails.id)) {
-          return true;
         } else {
-          throw new Error('Guest user not found.');
+          const guestUserDetails = await this.getModuleDetails(
+            usersModel,
+            'findOne',
+            { id: req.body.guestId },
+            ['id', 'name', 'email'],
+            true
+          );
+          if (IsNotNullOrEmpty(guestUserDetails.id)) {
+            const checkExistingAppointments =
+              await this.checkExistingAppointments(req);
+            if (checkExistingAppointments === true) {
+              const checkSpecialSchedules = await this.checkSpecialSchedules(
+                req
+              );
+              if (checkSpecialSchedules === true) {
+                return true;
+              }
+            }
+          } else {
+            throw new Error(userMessages.guestUserNotFound);
+          }
         }
       }
     } catch (error) {
@@ -180,19 +196,88 @@ module.exports = {
     }
   },
 
-  // Check Time
+  // Check time
   async checkTime(req) {
     try {
       const desiredStartTime = moment('08:00', 'HH:mm');
       const desiredEndTime = moment('20:00', 'HH:mm');
 
-      const parsedStartTime = moment(req.body.startTime, 'HH:mm');
-      const parsedEndTime = moment(req.body.endTime, 'HH:mm');
+      const requestedStartTime = moment(req.body.startTime, 'HH:mm');
+      const requestedEndTime = moment(req.body.endTime, 'HH:mm');
 
-      if (!parsedStartTime.isSameOrAfter(desiredStartTime)) {
+      if (!requestedStartTime.isSameOrAfter(desiredStartTime)) {
         throw new Error(dateTimeMessages.invalidStartTime);
-      } else if (!parsedEndTime.isSameOrBefore(desiredEndTime)) {
+      } else if (!requestedEndTime.isSameOrBefore(desiredEndTime)) {
         throw new Error(dateTimeMessages.invalidEndTime);
+      } else {
+        return true;
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  // Check existing appointments
+  async checkExistingAppointments(req) {
+    try {
+      const existingAppointmentDetails = await this.getModuleDetails(
+        appointmentsModel,
+        'findAll',
+        {
+          date: req.body.date,
+          userId: req.headers.loggedInUserId,
+          guestId: req.body.userId,
+        },
+        ['id', 'date', 'startTime', 'endTime'],
+        true
+      );
+      if (IsNotNullOrEmpty(existingAppointmentDetails)) {
+        existingAppointmentDetails.forEach((existingAppointment) => {
+          const existingAppointmentStartTime = moment(
+            existingAppointment.startTime,
+            'HH:mm'
+          );
+          const existingAppointmentEndTime = moment(
+            existingAppointment.endTime,
+            'HH:mm'
+          );
+          const requestedStartTime = moment(req.body.startTime, 'HH:mm');
+          const requestedEndTime = moment(req.body.endTime, 'HH:mm');
+          if (requestedStartTime.isSame(requestedEndTime)) {
+            throw new Error(dateTimeMessages.inputTimeCanNotBeTheSame);
+          } else if (
+            requestedStartTime.isSame(existingAppointmentStartTime) ||
+            (requestedStartTime.isAfter(existingAppointmentStartTime) &&
+              requestedStartTime.isBefore(existingAppointmentEndTime)) ||
+            requestedStartTime.isBefore(existingAppointmentEndTime) ||
+            requestedEndTime.isSameOrBefore(existingAppointmentEndTime)
+          ) {
+            throw new Error(
+              `${appointmentMessages.appointmentExists} ${existingAppointment.date} from ${existingAppointment.startTime} to ${existingAppointment.endTime}`
+            );
+          }
+        });
+      }
+      return true;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  // Check special schedules
+  async checkSpecialSchedules(req) {
+    try {
+      const specialSchedulesDetails = await this.getModuleDetails(
+        specialSchedulesModel,
+        'findAll',
+        { userId: req.headers.loggedInUserId },
+        ['id', 'statusType', 'date', 'startTime', 'endTime'],
+        true
+      );
+      if (IsNotNullOrEmpty(specialSchedulesDetails)) {
+        specialSchedulesDetails.forEach((specialSchedules) => {
+          console.log(specialSchedules);
+        });
       }
       return true;
     } catch (error) {
