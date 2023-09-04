@@ -15,18 +15,21 @@ const userMessages = {
   userNotFound : 'User not found with this email address.',
   userLoginSuccess : 'User login successfully.',
   userLoginFailure : 'User login failed, please check email and password.',
+  guestUserNotFound : 'Guest user not found.',
 };
 
 const dateTimeMessages = {
   invalidDate : 'You have selected Invalid date (past date).',
   invalidStartTime : 'Start time should be 08:00 or more.',
   invalidEndTime : 'End time should be 20:00 or less.',
+  inputTimeCanNotBeTheSame : 'Startime and Endtime can not be the same.'
 };
 
 const appointmentMessages = {
   notAllowedToScheduleAppointment : 'You are not allowed to schedule an appointment with yourself.',
   appointmentsDetailsNotFound : 'Appointments details not found. Please try again later.',
   appointmentsDetailsFound : 'Appointments details found successfully.',
+  appointmentExists : 'Appointment exists on',
 };
 
 module.exports = {
