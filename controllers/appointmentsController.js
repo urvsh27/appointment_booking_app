@@ -38,44 +38,14 @@ module.exports = {
     let successObjectRes = successObjectResponse;
     let errorObjectRes = errorObjectResponse;
     try {
-      let newAppointmentDetails = '';
-      const { title, agenda, date, startTime, endTime, guestId } =
-        req.body;
-      const appointmentAvailability =
-        await globalController.checkAppointmentAvailability(req);
-      if (appointmentAvailability === true) {
-        await db.sequelize.transaction(
-          {
-            deferrable: Sequelize.Deferrable.SET_DEFERRED,
-          },
-          async (t1) => {
-            await appointmentsModel
-              .create(
-                { title, agenda, date, startTime, endTime, guestId, userId : req.headers.loggedInUserId },
-                { transaction: t1 },
-                { raw: true }
-              )
-              .then(async (createdAppointmentDetails) => {
-                newAppointmentDetails = createdAppointmentDetails;
-              })
-              .catch(async (error) => {
-                let message =
-                  await globalController.getMessageFromErrorInstance(error);
-                if (message) {
-                  throw new Error(message);
-                } else {
-                  throw new Error(error.message);
-                }
-              });
-          }
-        );
-      }
-      if (IsNullOrEmpty(newAppointmentDetails)) {
-        throw new Error('error in creating appointment.');
-      } else {
-        successObjectRes.message = 'Appointment created successfully.';
-        successObjectRes.data = newAppointmentDetails;
-      }
+        const newAppointmentDetails = await globalController.checkAvailabilityAndCreateNewAppointment(req);
+        if (IsNullOrEmpty(newAppointmentDetails)) {
+          throw new Error(appointmentMessages.appointmentCreateFail);
+        } else {
+          successObjectRes.message = appointmentMessages.appointmentCreateSuccess;
+          successObjectRes.data = newAppointmentDetails;
+        }
+      
       res.status(201).send(successObjectRes);
     } catch (error) {
       errorObjectRes.message = error.message;
@@ -92,7 +62,7 @@ module.exports = {
         model :   usersModel,
         attributes : [['id','userId']],
     }
-     const appointmentDetails =  await globalController.getModuleDetails(appointmentsModel,'findAll', {userId : req.headers.loggedInUserId},[['id','aid'],'title'],true, modelIncludeData);
+     const appointmentDetails =  await globalController.getModuleDetails(appointmentsModel,'findAll', {userId : req.headers.loggedInUserId},[['id','appointmentId'],'title'],true, modelIncludeData);
      if(IsNullOrEmpty(appointmentDetails)){
       throw new Error(appointmentMessages.appointmentsDetailsFound);
      }else{

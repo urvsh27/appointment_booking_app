@@ -8,6 +8,8 @@ const globalController = require('./globalController');
 const {
   successObjectResponse,
   errorObjectResponse,
+  successArrayResponse,
+  errorArrayResponse,
 } = require('../utils/response');
 const { IsNullOrEmpty, IsNotNullOrEmpty } = require('../utils/enum');
 const {
@@ -128,6 +130,33 @@ module.exports = {
     } catch (error) {
       errorObjectRes.message = error.message;
       res.status(400).send(errorObjectRes);
+    }
+  },
+
+  /*
+  Get all users
+  */
+  async getAllUsers(req, res) {
+    let successArrayRes = successArrayResponse;
+    let errorArrayRes = errorArrayResponse;
+    try {
+      const allUsersDetails = await globalController.getModuleDetails(
+        usersModel,
+        'findAll',
+        { activated: true, deleted: false },
+        [['id', 'userId'], 'name', 'email'],
+        true
+      );
+      if (IsNotNullOrEmpty(allUsersDetails)) {
+        successArrayRes.message = userMessages.allUsersDetailsFound;
+        successArrayRes.data = allUsersDetails;
+      } else {
+        throw new Error(userMessages.allUsersDetailsNotFound);
+      }
+      res.status(201).send(successArrayRes);
+    } catch (error) {
+      errorArrayRes.message = error.message;
+      res.status(400).send(errorArrayRes);
     }
   },
 };
