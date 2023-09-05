@@ -19,6 +19,10 @@ const userMessages = {
   allUsersDetailsNotFound : 'All users details not found, please try again later.',
   allUsersDetailsFound :'All users details found successfully.', 
   guestUserNotAvailable : 'Guest user not available on',
+  userDetailsNotFound : 'User details not found. Please try again later.',
+  userDetailsFound : 'User details found successfully.',
+  userDetailsUpdateFail : 'Unable to update user details. Please try again later.',
+  userDetailsUpdateSuccess : 'User details updated successfully',
 };
 
 const dateTimeMessages = {

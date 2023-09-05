@@ -32,6 +32,10 @@ router.get('/appointments', authController.jwtUserAuthValidate, appointmentsCont
 /*
 * Users routes
 */
-router.get('/users', authController.jwtUserAuthValidate, usersController.getAllUsers);
-
+// Get all users
+router.get('/users', authController.jwtUserAuthValidate, usersController.getAllUsersDetails);
+// Get single user
+router.get('/user', authController.jwtUserAuthValidate, usersController.getUserDetails);
+// Update single user
+router.patch('/user', authController.jwtUserAuthValidate, validator('userUpdate'),usersController.updateUserDetails);
 module.exports = router;

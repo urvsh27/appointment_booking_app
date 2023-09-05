@@ -20,6 +20,7 @@ const {
 const { userMessages } = require('../utils/messages');
 const Sequelize = require('sequelize');
 const db = require('../models/index');
+const { error } = require('../validators/userUpdate.validator');
 
 module.exports = {
   /*
@@ -136,7 +137,7 @@ module.exports = {
   /*
   Get all users
   */
-  async getAllUsers(req, res) {
+  async getAllUsersDetails(req, res) {
     let successArrayRes = successArrayResponse;
     let errorArrayRes = errorArrayResponse;
     try {
@@ -157,6 +158,89 @@ module.exports = {
     } catch (error) {
       errorArrayRes.message = error.message;
       res.status(400).send(errorArrayRes);
+    }
+  },
+
+  /*
+   * Get single user details
+   */
+  async getUserDetails(req, res) {
+    let successObjectRes = successObjectResponse;
+    let errorObjectRes = errorObjectResponse;
+    try {
+      const userDetails = await globalController.getModuleDetails(
+        usersModel,
+        'findOne',
+        { id: req.headers.loggedInUserId },
+        [['id', 'userId'], 'name', 'email']
+      );
+      if (IsNullOrEmpty(userDetails)) {
+        throw new Error(userMessages.userDetailsNotFound);
+      } else {
+        successObjectRes.message = userMessages.userDetailsFound;
+        successObjectRes.data = userDetails;
+      }
+      res.status(201).send(successObjectRes);
+    } catch (error) {
+      errorObjectRes.message = error.message;
+      res.status(400).send(errorObjectRes);
+    }
+  },
+
+  /*
+   * Update single user details
+   */
+  async updateUserDetails(req, res) {
+    let successObjectRes = successObjectResponse;
+    let errorObjectRes = errorObjectResponse;
+    try {
+      await db.sequelize.transaction(
+        {
+          deferrable: Sequelize.Deferrable.SET_DEFERRED,
+        },
+        async (t1) => {
+          await usersModel
+            .update(req.body,
+              {
+                where: { id: req.headers.loggedInUserId },
+              },
+              { transaction: t1 }
+            )
+            .then(async (userUpdated) => {
+              if (userUpdated[0] === 1) {
+                successObjectRes.data = await globalController.getModuleDetails(
+                  usersModel,
+                  'findOne',
+                  {
+                    id: req.headers.loggedInUserId,
+                    activated: true,
+                    deleted: false,
+                  },
+                  [['id', 'userId'], 'name', 'email'],
+                  true
+                );
+                successObjectRes.message =
+                  userMessages.userDetailsUpdateSuccess;
+              } else {
+                throw new Error(userMessages.userDetailsUpdateFail);
+              }
+            })
+            .catch(async (error) => {
+              let message = await globalController.getMessageFromErrorInstance(
+                error
+              );
+              if (message) {
+                throw new Error(message);
+              } else {
+                throw new Error(error.message);
+              }
+            });
+        }
+      );
+      res.status(201).send(successObjectRes);
+    } catch (error) {
+      errorObjectRes.message = error.message;
+      res.status(400).send(errorObjectRes);
     }
   },
 };
