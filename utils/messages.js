@@ -16,13 +16,17 @@ const userMessages = {
   userLoginSuccess : 'User login successfully.',
   userLoginFailure : 'User login failed, please check email and password.',
   guestUserNotFound : 'Guest user not found.',
+  allUsersDetailsNotFound : 'All users details not found, please try again later.',
+  allUsersDetailsFound :'All users details found successfully.', 
+  guestUserNotAvailable : 'Guest user not available on',
 };
 
 const dateTimeMessages = {
   invalidDate : 'You have selected Invalid date (past date).',
   invalidStartTime : 'Start time should be 08:00 or more.',
   invalidEndTime : 'End time should be 20:00 or less.',
-  inputTimeCanNotBeTheSame : 'Startime and Endtime can not be the same.'
+  inputTimeCanNotBeTheSame : 'Startime and Endtime can not be the same.',
+  weekendDateNotAllowed : 'Weekend date is not allowed.',
 };
 
 const appointmentMessages = {
@@ -30,6 +34,8 @@ const appointmentMessages = {
   appointmentsDetailsNotFound : 'Appointments details not found. Please try again later.',
   appointmentsDetailsFound : 'Appointments details found successfully.',
   appointmentExists : 'Appointment exists on',
+  appointmentCreateFail : 'Unable to create an Appointment',
+  appointmentCreateSuccess : 'Appointment created successfully.',
 };
 
 module.exports = {

@@ -14,6 +14,7 @@ const {
   appointmentMessages,
   userMessages,
 } = require('../utils/messages');
+const db = require('../models/index');
 
 module.exports = {
   /*
@@ -139,16 +140,20 @@ module.exports = {
   },
 
   /*
-   * Check appointment availability
+   * Check appointment availability and create new appointment
    */
-  async checkAppointmentAvailability(req) {
+  async checkAvailabilityAndCreateNewAppointment(req) {
     try {
+      let newAppointmentDetails = {};
       const checkDate = await this.checkDate(req);
       const checkTime = await this.checkTime(req);
+      // Check valid date and time
       if (checkDate === true && checkTime === true) {
+        // Check user and guest id are not same
         if (req.headers.loggedInUserId == req.body.guestId) {
           throw new Error(appointmentMessages.notAllowedToScheduleAppointment);
         } else {
+          // Check guestId is valid or not
           const guestUserDetails = await this.getModuleDetails(
             usersModel,
             'findOne',
@@ -157,14 +162,19 @@ module.exports = {
             true
           );
           if (IsNotNullOrEmpty(guestUserDetails.id)) {
-            const checkExistingAppointments =
-              await this.checkExistingAppointments(req);
+            // Check existing appointments
+            const checkExistingAppointments = await this.checkExistingAppointments(req);
             if (checkExistingAppointments === true) {
-              const checkSpecialSchedules = await this.checkSpecialSchedules(
-                req
-              );
+              // Check special schedules
+              const checkSpecialSchedules = await this.checkSpecialSchedules(req);
               if (checkSpecialSchedules === true) {
-                return true;
+                newAppointmentDetails = await this.newAppointmentDetails(req);
+              }else{
+                // Check weekends
+                const checkWeekends = await this.checkWeekends(req);
+                if (checkWeekends === true) {
+                  newAppointmentDetails = await this.newAppointmentDetails(req);
+                }
               }
             }
           } else {
@@ -172,6 +182,7 @@ module.exports = {
           }
         }
       }
+      return newAppointmentDetails;
     } catch (error) {
       throw new Error(error.message);
     }
@@ -205,7 +216,9 @@ module.exports = {
       const requestedStartTime = moment(req.body.startTime, 'HH:mm');
       const requestedEndTime = moment(req.body.endTime, 'HH:mm');
 
-      if (!requestedStartTime.isSameOrAfter(desiredStartTime)) {
+      if (requestedStartTime.isSame(requestedEndTime)) {
+        throw new Error(dateTimeMessages.inputTimeCanNotBeTheSame);
+      } else if (!requestedStartTime.isSameOrAfter(desiredStartTime)) {
         throw new Error(dateTimeMessages.invalidStartTime);
       } else if (!requestedEndTime.isSameOrBefore(desiredEndTime)) {
         throw new Error(dateTimeMessages.invalidEndTime);
@@ -226,7 +239,7 @@ module.exports = {
         {
           date: req.body.date,
           userId: req.headers.loggedInUserId,
-          guestId: req.body.userId,
+          guestId: req.body.guestId,
         },
         ['id', 'date', 'startTime', 'endTime'],
         true
@@ -243,9 +256,7 @@ module.exports = {
           );
           const requestedStartTime = moment(req.body.startTime, 'HH:mm');
           const requestedEndTime = moment(req.body.endTime, 'HH:mm');
-          if (requestedStartTime.isSame(requestedEndTime)) {
-            throw new Error(dateTimeMessages.inputTimeCanNotBeTheSame);
-          } else if (
+          if (
             requestedStartTime.isSame(existingAppointmentStartTime) ||
             (requestedStartTime.isAfter(existingAppointmentStartTime) &&
               requestedStartTime.isBefore(existingAppointmentEndTime)) ||
@@ -270,18 +281,101 @@ module.exports = {
       const specialSchedulesDetails = await this.getModuleDetails(
         specialSchedulesModel,
         'findAll',
-        { userId: req.headers.loggedInUserId },
+        { date: req.body.date, userId: req.body.guestId },
         ['id', 'statusType', 'date', 'startTime', 'endTime'],
         true
       );
       if (IsNotNullOrEmpty(specialSchedulesDetails)) {
         specialSchedulesDetails.forEach((specialSchedules) => {
-          console.log(specialSchedules);
+          const specialScheduleStartTime = moment(
+            specialSchedules.startTime,
+            'HH:mm'
+          );
+          const specialScheduleEndTime = moment(
+            specialSchedules.endTime,
+            'HH:mm'
+          );
+          const requestedStartTime = moment(req.body.startTime, 'HH:mm');
+          const requestedEndTime = moment(req.body.endTime, 'HH:mm');
+
+          if (specialSchedules.statusType === 'available') {
+            if (
+              !(
+                requestedStartTime.isSameOrAfter(specialScheduleStartTime) &&
+                requestedEndTime.isSameOrBefore(specialScheduleEndTime)
+              )
+            ) {
+              throw new Error(
+                `${userMessages.guestUserNotAvailable} ${specialSchedules.date} from ${req.body.startTime} to ${req.body.endTime}`
+              );
+            }
+          } else if (specialSchedules.statusType === 'unavailable') {
+            if (
+              requestedStartTime.isSameOrAfter(specialScheduleStartTime) &&
+              requestedEndTime.isSameOrBefore(specialScheduleEndTime)
+            ) {
+              throw new Error(
+                `${userMessages.guestUserNotAvailable} ${specialSchedules.date} from ${req.body.startTime} to ${req.body.endTime}`
+              );
+            }
+          }
         });
+        return true;
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  // Check weekends (By default set to saturday and sunday)
+  async checkWeekends(req) {
+    try {
+      const dateString = req.body.date;
+      const inputTimezone = 'UTC';
+      const inputDate = moment.tz(dateString, 'DD-MM-YYYY', inputTimezone);
+      // Check if the inputDate is Saturday (6) or Sunday (0)
+      if (inputDate.day() === 6 || inputDate.day() === 0) {
+        throw new Error(dateTimeMessages.weekendDateNotAllowed);
       }
       return true;
     } catch (error) {
       throw new Error(error.message);
     }
   },
+
+  // Create new appointment
+  async newAppointmentDetails(req){
+    try {
+      const { title, agenda, date, startTime, endTime, guestId } = req.body;
+     let newAppointmentDetails = {};
+      await db.sequelize.transaction(
+        {
+          deferrable: Sequelize.Deferrable.SET_DEFERRED,
+        },
+        async (t1) => {
+          await appointmentsModel
+            .create(
+              { title, agenda, date, startTime, endTime, guestId, userId : req.headers.loggedInUserId },
+              { transaction: t1 },
+              { raw: true }
+            )
+            .then(async (createdAppointmentDetails) => {
+              newAppointmentDetails = createdAppointmentDetails;
+            })
+            .catch(async (error) => {
+              let message =
+                await globalController.getMessageFromErrorInstance(error);
+              if (message) {
+                throw new Error(message);
+              } else {
+                throw new Error(error.message);
+              }
+            });
+        }
+      );
+      return newAppointmentDetails;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
 };
